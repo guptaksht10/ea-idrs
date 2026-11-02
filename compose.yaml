@@ -1,0 +1,19 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "8090:8090"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend
+    ports:
+      - "4444:4444"
+    depends_on:
+      - ml-service
+
+  ml-service:
+    build: ./ml-service
+    ports:
+      - "8000:8000"

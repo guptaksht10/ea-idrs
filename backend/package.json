@@ -1,0 +1,38 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "ea-idrs backend",
+  "homepage": "https://github.com/guptaksht10/ea-idrs#readme",
+  "bugs": {
+    "url": "https://github.com/guptaksht10/ea-idrs/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guptaksht10/ea-idrs.git"
+  },
+  "license": "Apache-2.0",
+  "author": "Akshat Gupta, Ankit Raj, Aamish Hussain, Jatin Garg",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^10.14.0",
+    "jest": "^30.5.2",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.9.10"
+  }
+}
