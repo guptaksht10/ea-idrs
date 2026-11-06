@@ -76,3 +76,21 @@ temp/
 Thumbs.db
 *.swp
 *.swo
+# ---------------------------------------------------------------- EA-IDRS ---
+# Datasets never go in git (ADR-0007). Only the README and checksum manifest.
+data/*
+!data/README.md
+!data/MANIFEST.sha256
+
+# Generated research outputs: model bundles, run folders, tracking stores.
+# Commit configs + docs that reproduce them, not the outputs themselves.
+artifacts/
+runs/
+mlruns/
+*.parquet
+*.joblib
+*.ubj
+.ipynb_checkpoints/
+
+# Private planning documents kept locally (research plan drafts, synopsis).
+local-dev/

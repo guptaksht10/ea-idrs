@@ -1,0 +1,82 @@
+[project]
+name = "eaidrs"
+version = "0.1.0"
+description = "EA-IDRS: Explanation-Aware Intrusion Detection and Response System (research library)"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [
+    { name = "Akshat Gupta" },
+    { name = "Ankit Raj" },
+    { name = "Aamish Hussain" },
+]
+# 3.12 matches the interpreter already pinned in the repository (see ADR-0001).
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "pyarrow>=16.0",
+    "scikit-learn>=1.5",
+    "xgboost>=2.1",
+    "lightgbm>=4.5",
+    "shap>=0.46",
+    "matplotlib>=3.9",
+    "pydantic>=2.8",
+    "pyyaml>=6.0",
+    "joblib>=1.4",
+]
+
+[project.scripts]
+eaidrs = "eaidrs.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=5.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "import-linter>=2.1",
+    "pandas-stubs>=2.2",
+    "types-PyYAML>=6.0",
+]
+dashboard = [
+    "streamlit>=1.38",
+    "plotly>=5.24",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+# ---------------------------------------------------------------- tooling ---
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["frontend", "backend", "ml-service", "local-dev"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "NPY"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = ["shap.*", "lightgbm.*", "xgboost.*", "sklearn.*", "joblib.*", "pyarrow.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: tests that take more than a few seconds",
+]
+
+[tool.coverage.run]
+source = ["eaidrs"]
+branch = true
