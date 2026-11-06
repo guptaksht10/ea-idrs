@@ -1,0 +1,20 @@
+# Review routing (blueprint §7.2). The last matching pattern wins.
+# TODO(AH): add Aamish's GitHub handle once known, e.g. docs/ @<handle>.
+# GitHub ignores unknown users here, so do not guess handles.
+
+# Default: both core members can review anything.
+*                       @guptaksht10 @dev-rajankit
+
+# ML pipeline (data, features, model, explanation, dashboard): Akshat reviews.
+/src/eaidrs/data/       @guptaksht10 @dev-rajankit
+/src/eaidrs/features/   @guptaksht10
+/src/eaidrs/model/      @guptaksht10
+/src/eaidrs/explain/    @guptaksht10
+/apps/                  @guptaksht10
+
+# Research validity (splits, evaluation, configs, CI, docs): Ankit reviews.
+/src/eaidrs/evaluation/ @dev-rajankit
+/configs/               @dev-rajankit @guptaksht10
+/tests/                 @dev-rajankit
+/.github/               @dev-rajankit
+/docs/                  @dev-rajankit
