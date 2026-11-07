@@ -6,12 +6,28 @@ Format: date · author · run ID (if any) · what · result · decision.
 
 ---
 
+## 2026-11-06 · Ankit Raj · DATA-00 verification (synthetic fixtures)
+
+**What:** verified the data pipeline on branch `feat/2-cicids-data-pipeline`.
+
+**Result (synthetic pipeline tests, not research evidence):**
+- `uv run pytest`: 55 passed; coverage 93% of `eaidrs` (statement + branch).
+- ruff, ruff format, mypy (15 files) and import-linter (1 contract kept) all pass.
+- Scale check on a 400k-row synthetic file with the real schema: read 2.1 s, clean 2.9 s,
+  peak traced memory 0.88 GB, cleaned frame 199 MB. Extrapolated to ~2.8M rows: well within
+  a 15 GB laptop. To be re-measured on the real files in DATA-02.
+- On the fixtures, the global day split leaves the Thursday-only class out of training, as
+  ADR-0008 anticipates. Whether this holds for the real data is measured in DATA-04.
+
+---
+
 ## 2026-11-06 · Ankit Raj · no run
 
 **What:** repository audit and engineering bootstrap (ENG-01); data-pipeline foundation on
 synthetic fixtures (DATA-00).
 
 **Result:**
+
 - Repository contained template scaffolding only (React template, empty Express entry file,
   FastAPI hello package). No research code, tests, CI or data. See
   `docs/minor-evaluation/repository-audit.md`.
@@ -21,6 +37,7 @@ synthetic fixtures (DATA-00).
   implemented and tested **on synthetic fixtures only**. No result from real data exists yet.
 
 **Decisions / open items:**
+
 - Split strategy is not chosen. A day-based split is expected to remove most attack classes
   from training; both strategies are implemented and will be compared in the audit (ADR-0008).
 - D1 (multi-class) and D2 (dataset version) proposed, awaiting the guide (ADR-0006, ADR-0007).

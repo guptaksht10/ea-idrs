@@ -1,0 +1,13 @@
+# Chronological split inside every (day, label) group. ADR-0008 option 2.
+# Within each group, the earliest ~60% of flows train, the next ~20% validate, the latest ~20%
+# test. Cuts fall between distinct timestamps, so a timestamp never appears in two splits of
+# the same group (exact fractions can therefore differ slightly when timestamps tie).
+name: grouped_by_day_label
+strategy: grouped_time
+group_by: [day, label]
+fractions:
+  train: 0.6
+  val: 0.2
+  test: 0.2
+
+min_class_support: 30

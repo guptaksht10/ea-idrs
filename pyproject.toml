@@ -80,3 +80,19 @@ markers = [
 [tool.coverage.run]
 source = ["eaidrs"]
 branch = true
+
+# Architecture contracts (ADR-0004). The label-firewall contract ("live path must not import
+# eaidrs.evaluation") is added in the PR that creates eaidrs.model / eaidrs.explain /
+# eaidrs.evaluation, because import-linter rejects contracts naming modules that do not exist.
+[tool.importlinter]
+root_package = "eaidrs"
+
+[[tool.importlinter.contracts]]
+name = "Layering: cli -> tracking -> data -> core"
+type = "layers"
+layers = [
+    "eaidrs.cli",
+    "eaidrs.tracking",
+    "eaidrs.data",
+    "eaidrs.core",
+]

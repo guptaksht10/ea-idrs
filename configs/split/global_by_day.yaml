@@ -1,0 +1,10 @@
+# Pure global chronological split by day (older plan: Mon-Wed / Thu / Fri). ADR-0008 option 1.
+# train: timestamp < val_start   val: val_start <= timestamp < test_start   test: >= test_start
+name: global_by_day
+strategy: global_time
+val_start: 2017-07-06T00:00:00
+test_start: 2017-07-07T00:00:00
+
+# A class is "evaluable" for recall-degradation analysis only if it has at least this many
+# flows in every split. Provisional value; fixed on validation before any test analysis.
+min_class_support: 30

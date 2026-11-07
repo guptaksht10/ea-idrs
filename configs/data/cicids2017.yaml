@@ -1,0 +1,145 @@
+# CIC-IDS2017 dataset configuration (ADR-0007, decision D2: Proposed).
+#
+# Lines marked VERIFY are assumptions about the raw files that task DATA-02 must confirm on
+# the downloaded data (8 Nov). If the real files differ, fix this file, not the raw data.
+# The audit run reports every mismatch (missing/unexpected columns, unparsed timestamps).
+
+name: cicids2017
+version: original-traffic-labelling
+
+# Relative to the data directory (EAIDRS_DATA_DIR, default <repo>/data).
+raw_dir: raw/cicids2017
+
+# VERIFY: the Thursday web-attack labels contain a non-UTF-8 dash byte, so the files are read
+# as latin-1 (which decodes every byte) and labels are normalised in code.
+encoding: latin-1
+
+# VERIFY file names. Listed in chronological order (Monday 3 July - Friday 7 July 2017).
+files:
+  - { name: Monday-WorkingHours.pcap_ISCX.csv, day: monday, date: 2017-07-03 }
+  - { name: Tuesday-WorkingHours.pcap_ISCX.csv, day: tuesday, date: 2017-07-04 }
+  - { name: Wednesday-workingHours.pcap_ISCX.csv, day: wednesday, date: 2017-07-05 }
+  - { name: Thursday-WorkingHours-Morning-WebAttacks.pcap_ISCX.csv, day: thursday, date: 2017-07-06 }
+  - { name: Thursday-WorkingHours-Afternoon-Infilteration.pcap_ISCX.csv, day: thursday, date: 2017-07-06 }
+  - { name: Friday-WorkingHours-Morning.pcap_ISCX.csv, day: friday, date: 2017-07-07 }
+  - { name: Friday-WorkingHours-Afternoon-PortScan.pcap_ISCX.csv, day: friday, date: 2017-07-07 }
+  - { name: Friday-WorkingHours-Afternoon-DDos.pcap_ISCX.csv, day: friday, date: 2017-07-07 }
+
+label_column: Label
+timestamp_column: Timestamp
+
+# VERIFY: day-first dates ("4/7/2017" = 4 July 2017). Formats are tried in order.
+timestamp_formats:
+  - "%d/%m/%Y %H:%M:%S"
+  - "%d/%m/%Y %H:%M"
+
+# VERIFY: some files write afternoon times on a 12-hour clock without AM/PM ("2:05" = 14:05).
+# Capture ran during working hours (~08:00-17:00), so hours below this value get +12 h.
+# Set to null if the audit shows the timestamps are already 24-hour.
+afternoon_hour_shift_below: 8
+
+# Flow identifiers. Kept as metadata for display; NOT model features (shortcut/leakage risk).
+# Whether Destination Port / Protocol should become features is decided in FEAT-01.
+identifier_columns:
+  - Flow ID
+  - Source IP
+  - Source Port
+  - Destination IP
+  - Destination Port
+  - Protocol
+
+# Identifier columns that hold numbers (parsed as integers, missing allowed).
+numeric_identifier_columns:
+  - Source Port
+  - Destination Port
+  - Protocol
+
+# The 77 CICFlowMeter flow-statistic columns, in raw-file order (names after whitespace strip).
+feature_columns:
+  - Flow Duration
+  - Total Fwd Packets
+  - Total Backward Packets
+  - Total Length of Fwd Packets
+  - Total Length of Bwd Packets
+  - Fwd Packet Length Max
+  - Fwd Packet Length Min
+  - Fwd Packet Length Mean
+  - Fwd Packet Length Std
+  - Bwd Packet Length Max
+  - Bwd Packet Length Min
+  - Bwd Packet Length Mean
+  - Bwd Packet Length Std
+  - Flow Bytes/s
+  - Flow Packets/s
+  - Flow IAT Mean
+  - Flow IAT Std
+  - Flow IAT Max
+  - Flow IAT Min
+  - Fwd IAT Total
+  - Fwd IAT Mean
+  - Fwd IAT Std
+  - Fwd IAT Max
+  - Fwd IAT Min
+  - Bwd IAT Total
+  - Bwd IAT Mean
+  - Bwd IAT Std
+  - Bwd IAT Max
+  - Bwd IAT Min
+  - Fwd PSH Flags
+  - Bwd PSH Flags
+  - Fwd URG Flags
+  - Bwd URG Flags
+  - Fwd Header Length
+  - Bwd Header Length
+  - Fwd Packets/s
+  - Bwd Packets/s
+  - Min Packet Length
+  - Max Packet Length
+  - Packet Length Mean
+  - Packet Length Std
+  - Packet Length Variance
+  - FIN Flag Count
+  - SYN Flag Count
+  - RST Flag Count
+  - PSH Flag Count
+  - ACK Flag Count
+  - URG Flag Count
+  - CWE Flag Count
+  - ECE Flag Count
+  - Down/Up Ratio
+  - Average Packet Size
+  - Avg Fwd Segment Size
+  - Avg Bwd Segment Size
+  - Fwd Header Length.1
+  - Fwd Avg Bytes/Bulk
+  - Fwd Avg Packets/Bulk
+  - Fwd Avg Bulk Rate
+  - Bwd Avg Bytes/Bulk
+  - Bwd Avg Packets/Bulk
+  - Bwd Avg Bulk Rate
+  - Subflow Fwd Packets
+  - Subflow Fwd Bytes
+  - Subflow Bwd Packets
+  - Subflow Bwd Bytes
+  - Init_Win_bytes_forward
+  - Init_Win_bytes_backward
+  - act_data_pkt_fwd
+  - min_seg_size_forward
+  - Active Mean
+  - Active Std
+  - Active Max
+  - Active Min
+  - Idle Mean
+  - Idle Std
+  - Idle Max
+  - Idle Min
+
+# VERIFY: "Fwd Header Length" appears twice in the raw header (pandas renames the second to
+# ".1"). Pairs are (duplicate, original). The duplicate is dropped only if every value is equal.
+duplicate_columns:
+  - ["Fwd Header Length.1", "Fwd Header Length"]
+
+# Optional label grouping (ADR-0006), e.g. {"Web Attack - XSS": "Web Attack"}.
+# Empty until the class-by-split audit justifies grouping. When set, the fine label is kept
+# in column `label_original`.
+label_groups: {}

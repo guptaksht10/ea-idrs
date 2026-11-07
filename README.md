@@ -78,7 +78,26 @@ uv run pytest
 
 ## Dataset setup
 
-CIC-IDS2017 is never committed. Instructions: [`data/README.md`](data/README.md).
+CIC-IDS2017 is never committed. Download instructions: [`data/README.md`](data/README.md).
+Then:
+
+```bash
+# Once, by the person who downloads the files (commit data/MANIFEST.sha256 afterwards)
+uv run eaidrs manifest create
+# Everyone else, after copying the same files into data/raw/cicids2017/
+uv run eaidrs manifest verify
+
+# Audit: file inventory, data quality, class-by-day, and class-by-split for both split options
+uv run eaidrs audit --split-config configs/split/grouped_by_day_label.yaml \
+                    --split-config configs/split/global_by_day.yaml
+
+# Write processed chronological splits (train/val; test goes to a sealed folder)
+uv run eaidrs prepare --split-config configs/split/grouped_by_day_label.yaml
+```
+
+Each command writes a run folder under `runs/` with the config copy, git commit, data
+manifest hash, environment and outputs. Optional path overrides are in `.env.example`.
+The split strategy is still **proposed** (ADR-0008); the audit provides the evidence to choose.
 
 ## Training and SHAP demo
 
