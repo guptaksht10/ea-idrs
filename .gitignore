@@ -6,6 +6,10 @@
 *.pem
 *.key
 
+# data
+ml-service/data/raw/*.csv
+ml-service/data/combine/*.csv
+
 # Node.js
 node_modules/
 npm-debug.log*
