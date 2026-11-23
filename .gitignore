@@ -38,6 +38,10 @@ __pycache__/
 *$py.class
 .Python
 
+# Dataset
+*.csv
+*.parquet
+
 # Virtual environments
 .venv/
 venv/

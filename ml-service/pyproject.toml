@@ -1,26 +1,41 @@
 [project]
 name = "ml-service"
 version = "0.1.0"
-description = "Add your description here"
+description = "Explanation-Aware Intrusion Detection and Response System (DTU/CSE/BTP/GP050)"
 readme = "README.md"
-authors = [
-    { name = "Akshat Gupta", email = "guptakshat1005@gmail.com" }
-]
 requires-python = ">=3.12"
+
 dependencies = [
-    "fastapi[standard]>=0.162.0",
-    "matplotlib>=3.11.2",
-    "numpy>=2.5.4",
-    "pandas>=3.1.1",
-    "scikit-learn>=1.9.1",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "pandas>=2.2.0",
+    "pyarrow>=18.0.0",
+    "numpy>=1.26.0,<2.1.0",
+    "scipy>=1.14.0",
+    "scikit-learn>=1.5.0",
+    "xgboost>=2.1.0",
+    "shap>=0.46.0",
+    "joblib>=1.4.0",
+    "nbformat>=5.10.0",
+]
+
+[dependency-groups]
+dev = [
+    "jupyter>=1.1.0",
+    "ipykernel>=6.29.0",
+    "matplotlib>=3.9.0",
+    "seaborn>=0.13.0",
+    "pytest>=8.3.0",
 ]
 
 [project.scripts]
-ml-service = "service:main"
+ml-service = "src.service.main:start"
 
 [tool.uv.build-backend]
-module-name = "service"
-module-root = "src"
+module-name = "src"
+module-root = ""
 
 [build-system]
 requires = ["uv_build>=0.13.6,<0.14.0"]
