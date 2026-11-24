@@ -42,6 +42,9 @@ __pycache__/
 *.csv
 *.parquet
 
+# Artifacts
+*.joblib
+
 # Virtual environments
 .venv/
 venv/
