@@ -7,14 +7,21 @@ from src.config import settings
 from src.logger import get_logger
 from src.service.model_engine import IDSEngine
 from src.service.monitors import DriftMonitorSuite
+from src.service.shifts import REALISTIC_SHIFTS, ShiftContext, apply_realistic_shift, ramp_severity
 
 logger = get_logger(__name__)
 
 ShiftType = Literal[
     "none",               # Experiment B / No-degradation control
-    "covariate_benign",   # Benign input drift (tests false-alarm resilience)
-    "class_conditional",  # Attack feature scaling without changing label boundary
-    "concept_proxy",      # Attack feature mutation causing silent recall degradation
+    # Realistic, physically consistent shifts (grid v4+, see src/service/shifts.py)
+    "benign_slowdown",    # Benign traffic up to 2x slower (false-alarm resilience)
+    "attack_low_rate",    # Target attack throttled up to 10x
+    "attack_padding",     # Target attack packets padded by up to 256 bytes
+    "attack_mimicry",     # Target attack moves towards real benign flows on its most distinctive features
+    # Legacy shifts (grid v1-v3): act on the monitors' top features, can create impossible values
+    "covariate_benign",
+    "class_conditional",
+    "concept_proxy",
 ]
 
 
@@ -25,6 +32,7 @@ class MonitorComparisonMetrics:
     t_alarm: Optional[int]
     t_fail: Optional[int]
     lead_time_delta_t: Optional[int]
+    detection_delay: Optional[int]  # t_alarm - shift_start; defined even when recall never fails
     missed_degradation: bool
     mean_score_post_shift: float
 
@@ -37,10 +45,15 @@ def inject_controlled_shift(
     severity: float,
     top_feature_indices: List[int],
     rng: np.random.Generator,
+    shift_context: Optional[ShiftContext] = None,
 ) -> np.ndarray:
-    """Applies controlled shift regimes (Experiment C) in-place on a copy of X_win."""
+    """Applies controlled shift regimes (Experiment C) on a copy of X_win."""
     if shift_type == "none" or severity <= 0.0:
         return X_win
+    if shift_type in REALISTIC_SHIFTS:
+        if shift_context is None:
+            raise ValueError(f"Shift {shift_type!r} needs a ShiftContext (see build_shift_context).")
+        return apply_realistic_shift(X_win, y_true, target_attack, shift_type, severity, shift_context, rng)
 
     X_mod = X_win.copy()
     cols = top_feature_indices[:6]
@@ -117,6 +130,10 @@ def run_controlled_experiment(
     shift_start_window: Optional[int] = None,
     max_windows: int = 40,
     recall_cutoff: float = 0.80,
+    seed: Optional[int] = None,
+    shift_context: Optional[ShiftContext] = None,
+    ramp: str = "linear",
+    ramp_windows: int = 8,
 ) -> dict:
     """
     Executes full delayed-label replay (Experiments B, C, E, F) anchored around the
@@ -143,7 +160,8 @@ def run_controlled_experiment(
         active_shift_start,
     )
 
-    rng = np.random.default_rng(settings.RANDOM_SEED)
+    run_seed = settings.RANDOM_SEED if seed is None else seed
+    rng = np.random.default_rng(run_seed)
     window_records: List[dict] = []
 
     for w_id in range(start_win, end_win):
@@ -151,11 +169,7 @@ def run_controlled_experiment(
         X_raw = chunk[feature_cols].to_numpy(dtype=np.float32)
         y_true = chunk["target"].to_numpy()
 
-        severity = (
-            min(1.0, (w_id - active_shift_start + 1) / 8.0)
-            if w_id >= active_shift_start
-            else 0.0
-        )
+        severity = ramp_severity(w_id - active_shift_start, ramp_windows, ramp)
         X_w = inject_controlled_shift(
             X_raw,
             y_true,
@@ -164,6 +178,7 @@ def run_controlled_experiment(
             severity=severity,
             top_feature_indices=monitor.ref.top_feature_indices,
             rng=rng,
+            shift_context=shift_context,
         )
 
         # Label-free monitoring step
@@ -193,6 +208,7 @@ def run_controlled_experiment(
                 "m4_alert": res["m4_alert"],
                 "target_recall": atk_recall,
                 "target_support": support,
+                "severity": round(float(severity), 6),
             }
         )
 
@@ -208,6 +224,7 @@ def run_controlled_experiment(
         alarms = post[post[f"{m}_alert"]]
         t_alarm = int(alarms["window_id"].iloc[0]) if not alarms.empty else None
         lead_time = (t_fail - t_alarm) if (t_fail is not None and t_alarm is not None) else None
+        detection_delay = (t_alarm - active_shift_start) if t_alarm is not None else None
         missed = bool(t_fail is not None and (t_alarm is None or t_alarm > t_fail))
         emp_far = float(pre[f"{m}_alert"].mean() * 100.0) if not pre.empty else 0.0
         mean_post = float(post[f"{m}_score"].mean()) if not post.empty else 0.0
@@ -220,6 +237,7 @@ def run_controlled_experiment(
                     t_alarm=t_alarm,
                     t_fail=t_fail,
                     lead_time_delta_t=lead_time,
+                    detection_delay=detection_delay,
                     missed_degradation=missed,
                     mean_score_post_shift=round(mean_post, 4),
                 )

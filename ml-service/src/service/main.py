@@ -13,6 +13,7 @@ from src.service.model_engine import IDSEngine
 from src.service.monitors import DriftMonitorSuite
 from src.service.schemas import ExperimentRunRequest, ExperimentSummaryResponse
 from src.service.shift_simulator import run_controlled_experiment
+from src.service.shifts import REALISTIC_SHIFTS, ShiftContext, build_shift_context
 
 logger = get_logger(__name__)
 
@@ -24,6 +25,7 @@ class RuntimeStore:
     feature_cols: List[str] = []
     baseline_recalls: Dict[str, float] = {}
     history: Dict[int, dict] = {}
+    shift_contexts: Dict[str, ShiftContext] = {}
 
 
 store = RuntimeStore()
@@ -240,6 +242,10 @@ def run_experiment_endpoint(req: ExperimentRunRequest) -> ExperimentSummaryRespo
     if req.target_attack not in store.engine.label_encoder.classes_:
         raise HTTPException(status_code=400, detail=f"Unknown target_attack: {req.target_attack}")
 
+    shift_context = None
+    if req.shift_type in REALISTIC_SHIFTS:
+        shift_context = _shift_context_for(req.target_attack)
+
     result = run_controlled_experiment(
         test_df=store.test_df,
         feature_cols=store.feature_cols,
@@ -250,5 +256,24 @@ def run_experiment_endpoint(req: ExperimentRunRequest) -> ExperimentSummaryRespo
         shift_start_window=req.shift_start_window,
         max_windows=req.max_windows,
         recall_cutoff=req.recall_cutoff,
+        shift_context=shift_context,
+        ramp=req.ramp,
+        ramp_windows=req.ramp_windows,
     )
     return ExperimentSummaryResponse(**result)
+
+
+def _shift_context_for(target_attack: str) -> ShiftContext:
+    """Builds (once per attack) the realistic-shift context from the clean validation split."""
+    if target_attack not in store.shift_contexts:
+        val_path = settings.SPLITS_DIR / "val_clean.parquet"
+        if not val_path.exists():
+            raise HTTPException(status_code=503, detail="val_clean.parquet not found; run build_splits.py.")
+        val_df = pd.read_parquet(val_path, columns=store.feature_cols + ["target"])
+        try:
+            store.shift_contexts[target_attack] = build_shift_context(
+                val_df, store.feature_cols, [target_attack], seed=settings.RANDOM_SEED
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return store.shift_contexts[target_attack]
