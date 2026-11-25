@@ -37,6 +37,8 @@ class IDSEngine:
         self.feature_names = list(feature_names)
         y_enc = self.label_encoder.fit_transform(y_train)
         sample_weights = compute_sample_weight(class_weight="balanced", y=y_enc)
+        # multi:softprob needs num_class; XGBoost only infers it for >2 classes.
+        self.model.set_params(num_class=len(self.label_encoder.classes_))
 
         logger.info(
             "Training XGBClassifier | samples=%d | features=%d | classes=%d",

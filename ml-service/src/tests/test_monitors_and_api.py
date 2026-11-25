@@ -48,3 +48,18 @@ def test_health_endpoint():
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
+
+def test_all_api_routes_registered():
+    """Guards against main.py losing endpoints (e.g. a file overwrite during a merge)."""
+    paths = {route.path for route in app.routes}
+    expected = {
+        "/health",
+        "/evaluate-window",
+        "/replay-test-window/{window_id}",
+        "/unlock-labels",
+        "/baseline-metrics",
+        "/run-experiment",
+    }
+    assert expected <= paths
+    with TestClient(app) as client:
+        assert client.get("/openapi.json").status_code == 200

@@ -1,4 +1,6 @@
-from typing import Literal
+from typing import List, Literal, Optional
+from pydantic import BaseModel, Field
+
 
 class ExperimentRunRequest(BaseModel):
     target_attack: str = Field(default="DDoS", description="Attack class to monitor for recall drop")
