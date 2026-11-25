@@ -45,6 +45,7 @@ uv run python -m src.preprocessing.build_splits     # -> data/processed/splits/*
 uv run python -m src.service.train_and_calibrate    # -> artifacts/ (model, reference, thresholds)
 uv run python -m src.service.dose_response          # -> artifacts/experiments/<run_id>_dose_response/
 uv run python -m src.service.run_grid               # -> artifacts/experiments/<run_id>/
+uv run python -m src.service.report [<run_id>]      # -> <run_id>/report/ (results.md + figures; latest run by default)
 ```
 
 Settings (split, window size, top-K features, calibration percentile) live in `src/config.py`.

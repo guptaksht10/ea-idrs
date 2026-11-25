@@ -78,7 +78,8 @@ control run does not also raise.
 
 Primary (pre-registered: matched 5% FAR, 0.15 recall drop): recall degraded in 9
 runs (DDoS padding, DDoS mimicry x3, DoS padding, PortScan padding, PortScan
-mimicry x3). M2, M3 and M4 warned in all 9, 6-13 windows before degradation; M1
+mimicry x3). M2, M3 and M4 warned in all 9: M3 and M4 6-13 windows before
+degradation, M2 4-13 (4 on PortScan padding, where M3/M4 gave 6); M1
 warned in 1 (DoS padding) and missed the rest. **M4 and M3 tied in all 9.**
 
 M4 vs M3 across all thresholds and criteria (`head_to_head.csv`): tie at the
@@ -108,7 +109,7 @@ pre-registered version, not a result.
 
 Not supported so far: M4 does not warn earlier than M3 at a matched false-alarm
 rate in any version. Supported so far: (a) label-free monitors that include model
-confidence give 6-13 windows of warning before recall drops under padding and
+confidence give 4-13 windows of warning before recall drops under padding and
 mimicry; (b) the detector is fragile to small padding (8-16 bytes); (c)
 exploratory, explanations warn earlier than raw features.
 
