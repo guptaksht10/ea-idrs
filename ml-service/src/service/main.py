@@ -13,6 +13,7 @@ from src.service.model_engine import IDSEngine
 from src.service.monitors import DriftMonitorSuite
 from src.service.schemas import ExperimentRunRequest, ExperimentSummaryResponse
 from src.service.shift_simulator import run_controlled_experiment
+from src.service.shifts import REALISTIC_SHIFTS, ShiftContext, build_shift_context
 
 logger = get_logger(__name__)
 
@@ -24,6 +25,7 @@ class RuntimeStore:
     feature_cols: List[str] = []
     baseline_recalls: Dict[str, float] = {}
     history: Dict[int, dict] = {}
+    shift_contexts: Dict[str, ShiftContext] = {}
 
 
 store = RuntimeStore()
@@ -42,11 +44,15 @@ async def lifespan(app: FastAPI):
     meta_path = settings.SPLITS_DIR / "split_metadata.json"
 
     if model_path.exists() and ref_path.exists() and thresh_path.exists():
-        store.engine = IDSEngine.load(model_path)
-        store.monitor = DriftMonitorSuite.load(
-            ref_path, thresh_path, min_bucket_samples=settings.MIN_BUCKET_SAMPLES
-        )
-        logger.info("Loaded XGBoost model and calibrated M1-M4 thresholds successfully.")
+        try:
+            store.engine = IDSEngine.load(model_path)
+            store.monitor = DriftMonitorSuite.load(
+                ref_path, thresh_path, min_bucket_samples=settings.MIN_BUCKET_SAMPLES
+            )
+            logger.info("Loaded XGBoost model and calibrated M1-M4 thresholds successfully.")
+        except ValueError as exc:
+            store.engine, store.monitor = None, None
+            logger.error("Artifacts in %s are not usable: %s", settings.ARTIFACTS_DIR, exc)
     else:
         logger.warning("Model or calibration artifacts missing in %s. Run train_and_calibrate.py first.", settings.ARTIFACTS_DIR)
 
@@ -108,8 +114,8 @@ def _score_matrix(
         raise HTTPException(status_code=503, detail="Artifacts not loaded. Run train_and_calibrate.py first.")
 
     t0 = time.perf_counter()
-    probs, preds, shap_sub, _ = store.engine.predict_and_explain(X_win, window_seed=window_id)
-    res = store.monitor.evaluate_window(X_win, probs, preds, shap_sub)
+    probs, preds, shap_sub, shap_preds = store.engine.predict_and_explain(X_win, window_seed=window_id)
+    res = store.monitor.evaluate_window(X_win, probs, shap_preds, shap_sub)
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
     classes = store.engine.label_encoder.classes_
@@ -236,6 +242,10 @@ def run_experiment_endpoint(req: ExperimentRunRequest) -> ExperimentSummaryRespo
     if req.target_attack not in store.engine.label_encoder.classes_:
         raise HTTPException(status_code=400, detail=f"Unknown target_attack: {req.target_attack}")
 
+    shift_context = None
+    if req.shift_type in REALISTIC_SHIFTS:
+        shift_context = _shift_context_for(req.target_attack)
+
     result = run_controlled_experiment(
         test_df=store.test_df,
         feature_cols=store.feature_cols,
@@ -245,6 +255,40 @@ def run_experiment_endpoint(req: ExperimentRunRequest) -> ExperimentSummaryRespo
         shift_type=req.shift_type,
         shift_start_window=req.shift_start_window,
         max_windows=req.max_windows,
-        recall_cutoff=req.recall_cutoff,
+        recall_cutoff=degradation_cutoff(req, store.baseline_recalls),
+        shift_context=shift_context,
+        ramp=req.ramp,
+        ramp_windows=req.ramp_windows,
     )
+    result["recall_cutoff"] = round(float(result["recall_cutoff"]), 4)
     return ExperimentSummaryResponse(**result)
+
+
+def degradation_cutoff(req: ExperimentRunRequest, baseline_recalls: Dict[str, float]) -> float:
+    """
+    Recall value below which the replay counts the target class as degraded.
+
+    With recall_drop set (default 0.15) this is the grid v5 primary rule, "recall fell by at
+    least recall_drop from its clean-validation baseline". The simulator flags recall < cutoff,
+    so a tiny epsilon makes a drop of exactly recall_drop count, as in grid_analysis.
+    """
+    if req.recall_drop is None:
+        return req.recall_cutoff
+    baseline = baseline_recalls.get(req.target_attack, 1.0)
+    return baseline - req.recall_drop + 1e-12
+
+
+def _shift_context_for(target_attack: str) -> ShiftContext:
+    """Builds (once per attack) the realistic-shift context from the clean validation split."""
+    if target_attack not in store.shift_contexts:
+        val_path = settings.SPLITS_DIR / "val_clean.parquet"
+        if not val_path.exists():
+            raise HTTPException(status_code=503, detail="val_clean.parquet not found; run build_splits.py.")
+        val_df = pd.read_parquet(val_path, columns=store.feature_cols + ["target"])
+        try:
+            store.shift_contexts[target_attack] = build_shift_context(
+                val_df, store.feature_cols, [target_attack], seed=settings.RANDOM_SEED
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return store.shift_contexts[target_attack]

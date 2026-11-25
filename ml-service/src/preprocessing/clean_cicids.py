@@ -52,6 +52,16 @@ MACRO_LABEL_MAP = {
 }
 
 
+TRAFFIC_LABELLING_ID_COLUMNS = [
+    "Flow ID",
+    "Source IP",
+    "Source Port",
+    "Destination IP",
+    "Protocol",
+    "Timestamp",
+]
+
+
 def attach_reconstructed_timestamps(df: pd.DataFrame) -> pd.DataFrame:
     """Assigns monotonically increasing UTC timestamps per capture session."""
     timestamps = pd.Series(index=df.index, dtype="datetime64[ns]")
@@ -86,6 +96,19 @@ def run_cleaning() -> Path:
             logger.debug("Dropping duplicate column 'Fwd Header Length.1' in %s", filename)
             df = df.drop(columns=["Fwd Header Length.1"])
 
+        # TrafficLabelling CSVs carry flow identifiers that MachineLearningCVE CSVs do not.
+        # They are not model features (and IPs/timestamps would leak), so drop them.
+        id_cols = [c for c in TRAFFIC_LABELLING_ID_COLUMNS if c in df.columns]
+        if id_cols:
+            logger.info("Dropping identifier columns %s in %s", id_cols, filename)
+            df = df.drop(columns=id_cols)
+
+        # TrafficLabelling Thursday-morning file has fully blank trailing rows.
+        blank_mask = df["Label"].isna()
+        if blank_mask.any():
+            logger.warning("Removed %d blank rows in %s", int(blank_mask.sum()), filename)
+            df = df[~blank_mask].copy()
+
         # Remove accidental mid-file header rows
         header_mask = df["Label"].astype(str).str.strip() == "Label"
         if header_mask.any():
@@ -107,6 +130,9 @@ def run_cleaning() -> Path:
         .astype(str)
         .str.strip()
         .str.replace("\x96", "-", regex=False)
+        # Web-attack labels contain a broken dash that decodes differently per CSV version
+        # (e.g. U+FFFD or mojibake); without this they silently fall into "Other".
+        .str.replace(r"Web Attack\s*[^\x00-\x7F]+\s*", "Web Attack - ", regex=True)
     )
     combined["Macro_Label"] = combined["Label"].map(MACRO_LABEL_MAP).fillna("Other")
 

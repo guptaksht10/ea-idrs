@@ -4,14 +4,38 @@ from pydantic import BaseModel, Field
 
 class ExperimentRunRequest(BaseModel):
     target_attack: str = Field(default="DDoS", description="Attack class to monitor for recall drop")
-    shift_type: Literal["none", "covariate_benign", "class_conditional", "concept_proxy"] = "concept_proxy"
+    shift_type: Literal[
+        "none",
+        "benign_slowdown",
+        "attack_low_rate",
+        "attack_padding",
+        "attack_mimicry",
+        "covariate_benign",   # legacy (grid v1-v3)
+        "class_conditional",  # legacy (grid v1-v3)
+        "concept_proxy",      # legacy (grid v1-v3)
+    ] = "attack_mimicry"
     shift_start_window: Optional[int] = Field(
         default=None,
         ge=1,
         description="Optional explicit shift start window; auto-anchors to target_attack wave if omitted.",
     )
     max_windows: int = Field(default=40, ge=5, le=200)
-    recall_cutoff: float = Field(default=0.80, gt=0.0, lt=1.0)
+    recall_drop: Optional[float] = Field(
+        default=0.15,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "Degradation = recall drop of at least this size from the clean-validation baseline "
+            "(grid v5 primary rule, same as /unlock-labels). Set to null to use recall_cutoff instead."
+        ),
+    )
+    recall_cutoff: float = Field(
+        default=0.80, gt=0.0, lt=1.0, description="Absolute recall cutoff (grid v1-v4); used only when recall_drop is null."
+    )
+    ramp: Literal["linear", "geometric"] = Field(
+        default="geometric", description="Severity ramp; geometric matches grid v5 (linear was v1-v4)."
+    )
+    ramp_windows: int = Field(default=20, ge=1, le=200, description="Windows from first shift to full severity.")
     
 class MonitorComparisonRow(BaseModel):
     monitor: str
@@ -19,6 +43,7 @@ class MonitorComparisonRow(BaseModel):
     t_alarm: Optional[int]
     t_fail: Optional[int]
     lead_time_delta_t: Optional[int]
+    detection_delay: Optional[int]
     missed_degradation: bool
     mean_score_post_shift: float
 
@@ -36,6 +61,7 @@ class ExperimentWindowPoint(BaseModel):
     m4_alert: bool
     target_recall: Optional[float]
     target_support: int
+    severity: float
 
 
 class ExperimentSummaryResponse(BaseModel):
