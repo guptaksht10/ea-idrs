@@ -11,6 +11,26 @@ from src.service.monitors import DriftMonitorSuite, ReferenceProfile
 logger = get_logger(__name__)
 
 
+def build_shap_reference(
+    engine: IDSEngine,
+    X: np.ndarray,
+    preds: np.ndarray,
+    num_classes: int,
+    per_class: int,
+    rng: np.random.Generator,
+) -> Dict[int, np.ndarray]:
+    """Explains up to `per_class` flows of each predicted class; classes never predicted are left out."""
+    shap_by_class: Dict[int, np.ndarray] = {}
+    for c_idx in range(num_classes):
+        idx = np.flatnonzero(preds == c_idx)
+        if len(idx) == 0:
+            continue
+        if len(idx) > per_class:
+            idx = np.sort(rng.choice(idx, size=per_class, replace=False))
+        shap_by_class[c_idx] = engine.explain(X[idx], np.full(len(idx), c_idx))
+    return shap_by_class
+
+
 def run_training_and_calibration() -> None:
     train_path = settings.SPLITS_DIR / "train.parquet"
     val_path = settings.SPLITS_DIR / "val_clean.parquet"
@@ -60,16 +80,14 @@ def run_training_and_calibration() -> None:
         report["weighted avg"]["f1-score"],
     )
 
-    # 2. Build Clean Reference Profile (R_c) from Stratified Training Sample
-    ref_sample_size = min(20_000, len(X_train))
+    # 2. Build Clean Reference Profile from the training split
     rng = np.random.default_rng(settings.RANDOM_SEED)
+    # M1/M2 reference: random flows, so the feature and score reference keeps the natural class mix.
+    ref_sample_size = min(settings.REFERENCE_SAMPLE_SIZE, len(X_train))
     ref_idx = rng.choice(len(X_train), size=ref_sample_size, replace=False)
     X_ref = X_train[ref_idx]
-
-    logger.info("Computing clean reference SHAP profile across %d flows...", ref_sample_size)
-    ref_probs, ref_preds, ref_shap_sub, ref_preds_sub = engine.predict_and_explain(
-        X_ref, window_seed=settings.RANDOM_SEED
-    )
+    ref_probs = engine.model.predict_proba(X_ref)
+    ref_preds = np.argmax(ref_probs, axis=1)
 
     num_classes = len(classes)
     benign_idx = classes.index("BENIGN") if "BENIGN" in classes else 0
@@ -79,14 +97,26 @@ def run_training_and_calibration() -> None:
         .tolist()
     )
 
-    shap_by_class: Dict[int, np.ndarray] = {}
+    # M4 reference (R_c): stratified by predicted class, so rare classes get a usable bucket.
+    logger.info(
+        "Computing class-stratified reference SHAP profile (up to %d flows per predicted class)...",
+        settings.SHAP_REFERENCE_PER_CLASS,
+    )
+    train_preds = engine.model.predict(X_train)
+    shap_by_class = build_shap_reference(
+        engine, X_train, train_preds, num_classes, settings.SHAP_REFERENCE_PER_CLASS, rng
+    )
     for c_idx in range(num_classes):
-        mask = ref_preds_sub == c_idx
-        if np.any(mask):
-            shap_by_class[c_idx] = ref_shap_sub[mask]
-            logger.debug("Reference SHAP bucket [%s]: %d samples", classes[c_idx], int(np.sum(mask)))
+        n_c = len(shap_by_class.get(c_idx, []))
+        if n_c < settings.MIN_BUCKET_SAMPLES:
+            logger.warning(
+                "Reference SHAP bucket [%s] has %d samples (< %d); M4 ignores this class.",
+                classes[c_idx],
+                n_c,
+                settings.MIN_BUCKET_SAMPLES,
+            )
         else:
-            logger.warning("Reference SHAP bucket [%s] has 0 predicted samples.", classes[c_idx])
+            logger.info("Reference SHAP bucket [%s]: %d samples", classes[c_idx], n_c)
 
     reference = ReferenceProfile(
         features=X_ref,
@@ -108,9 +138,9 @@ def run_training_and_calibration() -> None:
     clean_windows = []
     for w_idx, start in enumerate(range(0, len(X_val) - step + 1, step)):
         X_w = X_val[start : start + step]
-        w_probs, w_preds, w_shap, _ = engine.predict_and_explain(X_w, window_seed=w_idx)
+        w_probs, _, w_shap, w_shap_preds = engine.predict_and_explain(X_w, window_seed=w_idx)
         clean_windows.append(
-            {"X": X_w, "probs": w_probs, "preds": w_preds, "shap": w_shap}
+            {"X": X_w, "probs": w_probs, "shap_preds": w_shap_preds, "shap": w_shap}
         )
 
     logger.info(

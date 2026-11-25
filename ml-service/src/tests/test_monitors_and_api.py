@@ -27,8 +27,9 @@ def test_monitor_calibration_and_shap_shift_detection():
     )
     suite = DriftMonitorSuite(reference=ref, min_bucket_samples=10)
 
+    # Identical clean windows: every leave-one-out surprisal is 0, so all thresholds are 0.
     clean_windows = [
-        {"X": X_train, "probs": probs, "preds": preds, "shap": shap_sub}
+        {"X": X_train, "probs": probs, "shap_preds": preds_sub, "shap": shap_sub}
         for _ in range(10)
     ]
     thresholds = suite.calibrate(clean_windows, percentile=95.0)
@@ -37,8 +38,9 @@ def test_monitor_calibration_and_shap_shift_detection():
     # Simulate drifted SHAP attributions for predicted DDoS bucket
     drifted_shap = shap_sub.copy()
     drifted_shap[preds_sub == 1, 0] += 5.0
-    eval_res = suite.evaluate_window(X_train, probs, preds, drifted_shap)
+    eval_res = suite.evaluate_window(X_train, probs, preds_sub, drifted_shap)
     assert eval_res["m4_alert"] is True
+    assert eval_res["m3_alert"] is False  # features and scores did not change, only explanations
     assert eval_res["m4_score"] > eval_res["m3_score"]
 
 
@@ -48,3 +50,34 @@ def test_health_endpoint():
         assert resp.status_code == 200
         body = resp.json()
         assert body["status"] == "ok"
+
+def test_all_api_routes_registered():
+    """Guards against main.py losing endpoints (e.g. a file overwrite during a merge)."""
+    paths = {route.path for route in app.routes}
+    expected = {
+        "/health",
+        "/evaluate-window",
+        "/replay-test-window/{window_id}",
+        "/unlock-labels",
+        "/baseline-metrics",
+        "/run-experiment",
+    }
+    assert expected <= paths
+    with TestClient(app) as client:
+        assert client.get("/openapi.json").status_code == 200
+
+
+def test_run_experiment_uses_baseline_drop_rule_by_default():
+    """The demo endpoint must flag degradation with the same rule as grid v5 and /unlock-labels."""
+    from src.service.main import degradation_cutoff
+    from src.service.schemas import ExperimentRunRequest
+
+    baselines = {"DDoS": 0.9997, "PortScan": 1.0}
+    default = ExperimentRunRequest(target_attack="DDoS")
+    assert default.recall_drop == 0.15
+    assert abs(degradation_cutoff(default, baselines) - 0.8497) < 1e-9
+    # A drop of exactly 0.15 counts (simulator uses recall < cutoff).
+    assert 1.0 - 0.15 < degradation_cutoff(ExperimentRunRequest(target_attack="PortScan"), baselines)
+    # Legacy absolute rule when recall_drop is null.
+    legacy = ExperimentRunRequest(target_attack="DDoS", recall_drop=None, recall_cutoff=0.8)
+    assert degradation_cutoff(legacy, baselines) == 0.8

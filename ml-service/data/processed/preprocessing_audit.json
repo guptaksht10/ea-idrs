@@ -60,10 +60,10 @@
     "DoS slowloris": 5796,
     "DoS Slowhttptest": 5499,
     "Bot": 1956,
-    "Web Attack \u00ef\u00bf\u00bd Brute Force": 1507,
-    "Web Attack \u00ef\u00bf\u00bd XSS": 652,
+    "Web Attack - Brute Force": 1507,
+    "Web Attack - XSS": 652,
     "Infiltration": 36,
-    "Web Attack \u00ef\u00bf\u00bd Sql Injection": 21,
+    "Web Attack - Sql Injection": 21,
     "Heartbleed": 11
   },
   "macro_class_counts": {
@@ -72,7 +72,7 @@
     "PortScan": 158804,
     "DDoS": 128025,
     "BruteForce": 13832,
-    "Other": 2180,
+    "WebAttack": 2180,
     "Bot": 1956,
     "Infiltration": 36,
     "Heartbleed": 11
