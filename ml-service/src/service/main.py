@@ -42,11 +42,15 @@ async def lifespan(app: FastAPI):
     meta_path = settings.SPLITS_DIR / "split_metadata.json"
 
     if model_path.exists() and ref_path.exists() and thresh_path.exists():
-        store.engine = IDSEngine.load(model_path)
-        store.monitor = DriftMonitorSuite.load(
-            ref_path, thresh_path, min_bucket_samples=settings.MIN_BUCKET_SAMPLES
-        )
-        logger.info("Loaded XGBoost model and calibrated M1-M4 thresholds successfully.")
+        try:
+            store.engine = IDSEngine.load(model_path)
+            store.monitor = DriftMonitorSuite.load(
+                ref_path, thresh_path, min_bucket_samples=settings.MIN_BUCKET_SAMPLES
+            )
+            logger.info("Loaded XGBoost model and calibrated M1-M4 thresholds successfully.")
+        except ValueError as exc:
+            store.engine, store.monitor = None, None
+            logger.error("Artifacts in %s are not usable: %s", settings.ARTIFACTS_DIR, exc)
     else:
         logger.warning("Model or calibration artifacts missing in %s. Run train_and_calibrate.py first.", settings.ARTIFACTS_DIR)
 
@@ -108,8 +112,8 @@ def _score_matrix(
         raise HTTPException(status_code=503, detail="Artifacts not loaded. Run train_and_calibrate.py first.")
 
     t0 = time.perf_counter()
-    probs, preds, shap_sub, _ = store.engine.predict_and_explain(X_win, window_seed=window_id)
-    res = store.monitor.evaluate_window(X_win, probs, preds, shap_sub)
+    probs, preds, shap_sub, shap_preds = store.engine.predict_and_explain(X_win, window_seed=window_id)
+    res = store.monitor.evaluate_window(X_win, probs, shap_preds, shap_sub)
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
     classes = store.engine.label_encoder.classes_

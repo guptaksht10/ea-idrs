@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     # Windowing & Calibration
     WINDOW_SIZE: int = 2000                 # ~2,000 flows per window
     SHAP_SAMPLE_SIZE: int = 512             # Fixed sample per window (Experiment D)
+    REFERENCE_SAMPLE_SIZE: int = 20_000     # Random training flows for the M1/M2 reference (natural class mix)
+    SHAP_REFERENCE_PER_CLASS: int = 1_000   # Training flows explained per predicted class for the M4 reference
     TOP_K_FEATURES: int = 15                # Top features tracked by M1 & M4
     MIN_BUCKET_SAMPLES: int = 15            # Min predicted samples per class bucket for SHAP distance
     CALIBRATION_PERCENTILE: float = 95.0    # 5% matched false-alarm budget

@@ -59,11 +59,9 @@ class IDSEngine:
           probs: (N, C) predicted class probabilities
           preds: (N,) predicted class indices
           shap_sub: (M, F) SHAP attributions for each flow's predicted class on M <= shap_sample_size flows
-          preds_sub: (M,) predicted class indices for the M subsampled flows
+          preds_sub: (M,) predicted class indices for the M subsampled flows.
+            Row i of shap_sub belongs to preds_sub[i]; pass preds_sub (not preds) to the monitors.
         """
-        if self.explainer is None:
-            self.explainer = shap.TreeExplainer(self.model)
-
         probs = self.model.predict_proba(X_win)
         preds = np.argmax(probs, axis=1)
 
@@ -74,10 +72,18 @@ class IDSEngine:
         else:
             sub_idx = np.arange(n_rows)
 
-        X_sub = X_win[sub_idx]
         preds_sub = preds[sub_idx]
+        shap_sub = self.explain(X_win[sub_idx], preds_sub)
+        return probs, preds, shap_sub, preds_sub
 
-        raw_shap = self.explainer.shap_values(X_sub)
+    def explain(self, X: np.ndarray, classes: np.ndarray) -> np.ndarray:
+        """TreeSHAP attributions of every row in X towards the class given for that row: (N, F)."""
+        if self.explainer is None:
+            self.explainer = shap.TreeExplainer(self.model)
+        if len(X) == 0:
+            return np.empty((0, X.shape[1]), dtype=np.float32)
+
+        raw_shap = self.explainer.shap_values(X)
 
         # Normalize SHAP output across shap versions:
         # Either list of C arrays [(M, F), ...] or 3D ndarray (M, F, C)
@@ -88,9 +94,7 @@ class IDSEngine:
             if shap_3d.ndim == 2:
                 shap_3d = np.stack([-shap_3d, shap_3d], axis=-1)
 
-        row_indexer = np.arange(len(sub_idx))
-        shap_sub = shap_3d[row_indexer, :, preds_sub].astype(np.float32)  # (M, F)
-        return probs, preds, shap_sub, preds_sub
+        return shap_3d[np.arange(len(X)), :, np.asarray(classes)].astype(np.float32)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

@@ -27,8 +27,9 @@ def test_monitor_calibration_and_shap_shift_detection():
     )
     suite = DriftMonitorSuite(reference=ref, min_bucket_samples=10)
 
+    # Identical clean windows: every leave-one-out surprisal is 0, so all thresholds are 0.
     clean_windows = [
-        {"X": X_train, "probs": probs, "preds": preds, "shap": shap_sub}
+        {"X": X_train, "probs": probs, "shap_preds": preds_sub, "shap": shap_sub}
         for _ in range(10)
     ]
     thresholds = suite.calibrate(clean_windows, percentile=95.0)
@@ -37,8 +38,9 @@ def test_monitor_calibration_and_shap_shift_detection():
     # Simulate drifted SHAP attributions for predicted DDoS bucket
     drifted_shap = shap_sub.copy()
     drifted_shap[preds_sub == 1, 0] += 5.0
-    eval_res = suite.evaluate_window(X_train, probs, preds, drifted_shap)
+    eval_res = suite.evaluate_window(X_train, probs, preds_sub, drifted_shap)
     assert eval_res["m4_alert"] is True
+    assert eval_res["m3_alert"] is False  # features and scores did not change, only explanations
     assert eval_res["m4_score"] > eval_res["m3_score"]
 
 

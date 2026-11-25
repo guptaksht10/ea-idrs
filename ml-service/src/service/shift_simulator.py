@@ -167,8 +167,8 @@ def run_controlled_experiment(
         )
 
         # Label-free monitoring step
-        probs, preds, shap_sub, _ = engine.predict_and_explain(X_w, window_seed=w_id)
-        res = monitor.evaluate_window(X_w, probs, preds, shap_sub)
+        probs, preds, shap_sub, shap_preds = engine.predict_and_explain(X_w, window_seed=w_id)
+        res = monitor.evaluate_window(X_w, probs, shap_preds, shap_sub)
 
         # Delayed-label unlock step
         y_pred_str = engine.label_encoder.inverse_transform(preds)
