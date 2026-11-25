@@ -15,7 +15,9 @@ class Settings(BaseSettings):
 
     # Dataset & Preprocessing
     LABEL_MODE: str = "macro"               # "macro" (8 classes) or "granular" (15 classes)
-    SPLIT_MODE: str = "per_class_temporal"  # "per_class_temporal" or "strict_day"
+    SPLIT_MODE: str = "grouped_day_label"   # "grouped_day_label", "per_class_temporal" or "strict_day"
+    SPLIT_TRAIN_FRAC: float = 0.50          # Earliest share of each group -> train
+    SPLIT_VAL_FRAC: float = 0.15            # Next share -> clean validation (calibration); rest -> test
     CORR_THRESHOLD: float = 0.98            # Drop duplicate/collinear features with |r| > 0.98
 
     # Windowing & Calibration
