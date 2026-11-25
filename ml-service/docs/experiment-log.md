@@ -5,9 +5,20 @@ feature + score baseline (M3) before attack-class recall degrades, at a matched
 false-alarm rate, when labels arrive late?
 
 Run folders live in `artifacts/experiments/<run id>/` (gitignored; regenerate with
-the commands in the README). Every run below was made on 2026-11-25 from a working
-tree on top of commit `30dbf57` with uncommitted changes (`git_dirty: true`), so
-each will be re-run from a clean commit before results are reported externally.
+the commands in the README). The v1-v5 development runs below were made on 2026-11-25
+from a working tree on top of commit `30dbf57` with uncommitted changes
+(`git_dirty: true`).
+
+**Reportable runs (clean tree).** v5 and the dose-response study were re-run from
+clean commit `74eaf22` (`git_dirty: false`): `build_splits` -> `train_and_calibrate`
+-> `dose_response` -> `run_grid`. Every result CSV is byte-identical to the
+development runs, and `baseline_metrics.json` / `thresholds.json` are unchanged, so
+the v5 numbers in this log hold as reported. Cite these run ids:
+
+| Run | Run id |
+|---|---|
+| v5 grid | `20261125T091904Z_grid_74eaf22` |
+| dose-response | `20261125T091859Z_dose_response` |
 
 ## Summary of versions
 
