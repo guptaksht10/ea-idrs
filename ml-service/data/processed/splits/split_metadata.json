@@ -7,8 +7,8 @@
     "BruteForce",
     "DDoS",
     "DoS",
-    "Other",
-    "PortScan"
+    "PortScan",
+    "WebAttack"
   ],
   "num_features": 46,
   "feature_cols": [
@@ -71,7 +71,7 @@
       "PortScan": 79402,
       "DDoS": 64012,
       "BruteForce": 6916,
-      "Other": 1090,
+      "WebAttack": 1090,
       "Bot": 978
     },
     "val_clean": {
@@ -80,7 +80,7 @@
       "PortScan": 23820,
       "DDoS": 19204,
       "BruteForce": 2074,
-      "Other": 327,
+      "WebAttack": 327,
       "Bot": 293
     },
     "test": {
@@ -89,7 +89,7 @@
       "PortScan": 55582,
       "DDoS": 44809,
       "BruteForce": 4842,
-      "Other": 763,
+      "WebAttack": 763,
       "Bot": 685
     }
   }
