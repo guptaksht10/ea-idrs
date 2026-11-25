@@ -65,3 +65,19 @@ def test_all_api_routes_registered():
     assert expected <= paths
     with TestClient(app) as client:
         assert client.get("/openapi.json").status_code == 200
+
+
+def test_run_experiment_uses_baseline_drop_rule_by_default():
+    """The demo endpoint must flag degradation with the same rule as grid v5 and /unlock-labels."""
+    from src.service.main import degradation_cutoff
+    from src.service.schemas import ExperimentRunRequest
+
+    baselines = {"DDoS": 0.9997, "PortScan": 1.0}
+    default = ExperimentRunRequest(target_attack="DDoS")
+    assert default.recall_drop == 0.15
+    assert abs(degradation_cutoff(default, baselines) - 0.8497) < 1e-9
+    # A drop of exactly 0.15 counts (simulator uses recall < cutoff).
+    assert 1.0 - 0.15 < degradation_cutoff(ExperimentRunRequest(target_attack="PortScan"), baselines)
+    # Legacy absolute rule when recall_drop is null.
+    legacy = ExperimentRunRequest(target_attack="DDoS", recall_drop=None, recall_cutoff=0.8)
+    assert degradation_cutoff(legacy, baselines) == 0.8

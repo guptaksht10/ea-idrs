@@ -162,6 +162,14 @@ Open `http://localhost:8000/docs`. Endpoints: `/health`, `/baseline-metrics`,
 `/run-experiment`, `/evaluate-window`, `/replay-test-window/{window_id}`,
 `/unlock-labels`. Needs the artifacts from `train_and_calibrate`.
 
+`/run-experiment` replays one attack x shift run (about 20 s). It flags degradation with
+the grid v5 rule, a recall drop of `recall_drop` (default 0.15) from the clean-validation
+baseline; set `recall_drop` to null to use the legacy absolute `recall_cutoff`. It scores
+alarms with the calibrated thresholds and does not subtract alarms that a control run also
+raises, so its M1 lead times can differ from the grid's matched-FAR results; M2-M4 match
+the grid for the mimicry runs. `empirical_far_pct` and `m4_minus_m3_margin_ci95` are the
+legacy per-run metrics (16 pre-shift windows), not the v5 evaluation.
+
 ## Tests
 
 ```bash

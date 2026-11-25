@@ -255,12 +255,27 @@ def run_experiment_endpoint(req: ExperimentRunRequest) -> ExperimentSummaryRespo
         shift_type=req.shift_type,
         shift_start_window=req.shift_start_window,
         max_windows=req.max_windows,
-        recall_cutoff=req.recall_cutoff,
+        recall_cutoff=degradation_cutoff(req, store.baseline_recalls),
         shift_context=shift_context,
         ramp=req.ramp,
         ramp_windows=req.ramp_windows,
     )
+    result["recall_cutoff"] = round(float(result["recall_cutoff"]), 4)
     return ExperimentSummaryResponse(**result)
+
+
+def degradation_cutoff(req: ExperimentRunRequest, baseline_recalls: Dict[str, float]) -> float:
+    """
+    Recall value below which the replay counts the target class as degraded.
+
+    With recall_drop set (default 0.15) this is the grid v5 primary rule, "recall fell by at
+    least recall_drop from its clean-validation baseline". The simulator flags recall < cutoff,
+    so a tiny epsilon makes a drop of exactly recall_drop count, as in grid_analysis.
+    """
+    if req.recall_drop is None:
+        return req.recall_cutoff
+    baseline = baseline_recalls.get(req.target_attack, 1.0)
+    return baseline - req.recall_drop + 1e-12
 
 
 def _shift_context_for(target_attack: str) -> ShiftContext:

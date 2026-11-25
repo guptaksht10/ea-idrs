@@ -20,7 +20,18 @@ class ExperimentRunRequest(BaseModel):
         description="Optional explicit shift start window; auto-anchors to target_attack wave if omitted.",
     )
     max_windows: int = Field(default=40, ge=5, le=200)
-    recall_cutoff: float = Field(default=0.80, gt=0.0, lt=1.0)
+    recall_drop: Optional[float] = Field(
+        default=0.15,
+        gt=0.0,
+        lt=1.0,
+        description=(
+            "Degradation = recall drop of at least this size from the clean-validation baseline "
+            "(grid v5 primary rule, same as /unlock-labels). Set to null to use recall_cutoff instead."
+        ),
+    )
+    recall_cutoff: float = Field(
+        default=0.80, gt=0.0, lt=1.0, description="Absolute recall cutoff (grid v1-v4); used only when recall_drop is null."
+    )
     ramp: Literal["linear", "geometric"] = Field(
         default="geometric", description="Severity ramp; geometric matches grid v5 (linear was v1-v4)."
     )
